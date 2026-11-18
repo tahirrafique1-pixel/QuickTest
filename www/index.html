@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Smart Assessment & Punjab SED Continuous Register</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Noto+Nastaliq+Urdu:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --primary: #059669; --primary-dark: #047857; --primary-light: #ecfdf5; --surface: #ffffff;
+      --border: #e2e8f0; --correct: #10b981; --wrong: #ef4444;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: 'Plus Jakarta Sans', sans-serif; }
+    body { background-color: #f8fafc; color: #0f172a; min-height: 100dvh; overflow-x: hidden; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+
+    .urdu-text { font-family: 'Noto Nastaliq Urdu', Arial, sans-serif !important; direction: rtl !important; text-align: right !important; line-height: 2.2 !important; }
+    
+    .sheet-green-dark { background-color: #164e28; color: #ffffff; }
+    .sheet-green-mid { background-color: #a9d08e; color: #1e3a10; }
+    .sheet-green-sub { background-color: #c6e0b4; color: #1e3a10; }
+    .sheet-green-light { background-color: #e2efda; }
+    .sheet-yellow-head { background-color: #ffd966; color: #594300; }
+    .sheet-yellow-light { background-color: #fff2cc; }
+    .sheet-blue-head { background-color: #9bc2e6; color: #103860; }
+    .sheet-blue-light { background-color: #ddebf7; }
+    .cell-off-day { background-color: #f1f5f9 !important; color: #94a3b8 !important; cursor: not-allowed; }
+    .text-absent { color: #dc2626 !important; font-weight: 800 !important; }
+
+    .table-responsive-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    
+    .screen-view { display: none; width: 100%; animation: fadeIn 0.25s ease-out; }
+    .screen-view.active { display: flex; flex-direction: column; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    .option-card { min-height: 54px; border: 2px solid var(--border); border-radius: 14px; transition: all 0.2s; }
+    .option-card.correct { border-color: var(--correct); background-color: #d1fae5; color: #065f46; }
+    .option-card.wrong { border-color: var(--wrong); background-color: #fee2e2; color: #991b1b; }
+
+    @keyframes spin-clockwise { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .animate-spin-circle { animation: spin-clockwise 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; }
+
+    .print-watermark { display: none; }
+
+    /* PROFESSIONAL A4 LANDSCAPE PRINT CSS */
+    @media print {
+      @page { size: A4 landscape; margin: 8mm; }
+      body { background: #ffffff !important; padding: 0 !important; font-size: 7.5pt !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+      .page-break { page-break-after: always; break-after: page; }
+      .report-card { border: none !important; box-shadow: none !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+      
+      .table-responsive-wrapper { overflow: visible !important; }
+      table { width: 100% !important; table-layout: fixed !important; border-collapse: collapse !important; }
+      
+      th, td { 
+        word-wrap: break-word !important; 
+        overflow-wrap: break-word !important; 
+        white-space: normal !important; 
+        padding: 3px !important; 
+        vertical-align: middle !important;
+        font-size: 7pt !important;
+      }
+      input, select, textarea { border: none !important; background: transparent !important; padding: 0 !important; width: 100% !important; font-size: inherit !important; }
+      
+      .print-watermark {
+        display: block !important; position: fixed; top: 50%; left: 50%;
+        transform: translate(-50%, -50%); opacity: 0.08; z-index: -10;
+        width: 450px; height: 450px; pointer-events: none;
+      }
+      .print-footer-page::after { content: "Page " counter(page); }
+    }
+  </style>
+</head>
+<body class="antialiased flex flex-col justify-between">
+
+  <!-- PRINT WATERMARK -->
+  <div class="print-watermark flex items-center justify-center">
+    <img id="printWatermarkLogo" src="" class="w-full h-full object-contain grayscale" alt="Watermark">
+  </div>
+
+  <!-- GLOBAL LOADER -->
+  <div id="globalLoader" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9999] flex flex-col items-center justify-center transition-opacity duration-300">
+    <div class="relative w-32 h-32 flex items-center justify-center">
+      <svg class="absolute inset-0 w-full h-full animate-spin-circle" viewBox="0 0 100 100">
+        <circle class="text-emerald-950/30" stroke-width="6" stroke="currentColor" fill="transparent" r="42" cx="50" cy="50"/>
+        <circle class="text-emerald-400" stroke-width="6" stroke-dasharray="264" stroke-dashoffset="75" stroke-linecap="round" stroke="currentColor" fill="transparent" r="42" cx="50" cy="50"/>
+      </svg>
+      <div class="w-20 h-20 rounded-full bg-white p-1.5 shadow-2xl overflow-hidden flex items-center justify-center z-10 border-2 border-emerald-500/40">
+        <img id="loaderBrandLogo" src="" class="w-full h-full object-contain rounded-full" alt="Brand Logo">
+      </div>
+    </div>
+    <div id="loaderText" class="mt-4 text-sm font-bold text-white tracking-wide text-center px-4 animate-pulse">Loading System...</div>
+  </div>
+
+  <!-- TOP APP BAR -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm no-print">
+    <div class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="handleLogoTaps()">
+        <div class="w-10 h-10 rounded-xl bg-white border border-emerald-200 p-0.5 shadow-md flex items-center justify-center overflow-hidden">
+          <img id="headerBrandLogo" src="" class="w-full h-full object-contain rounded-lg" alt="Logo">
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-bold leading-tight text-slate-900 flex items-center gap-2">
+            Multi-School Assessment
+            <span id="roleBadge" class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">Guest</span>
+          </h1>
+          <p id="cloudSyncStatus" class="text-[11px] font-bold text-slate-500">● Checking Network...</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="navReportsBtn" onclick="tryOpenReportsPortal()" class="hidden px-3 py-1.5 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg shadow-sm transition flex items-center gap-1.5">
+          <i class="fa-solid fa-clipboard-list"></i> <span class="hidden sm:inline">SED Register</span>
+        </button>
+        <button id="navAdminBtn" onclick="openAdminSettings()" class="hidden w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition">
+          <i class="fa-solid fa-sliders text-sm"></i>
+        </button>
+        <button onclick="handleLogout()" class="px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition flex items-center gap-1">
+          <i class="fa-solid fa-power-off"></i> <span id="authActionText" class="hidden sm:inline">Login</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto w-full p-3 sm:p-5 flex-grow flex flex-col">
+    <!-- SCREEN 1: PORTAL HOME -->
+    <div id="screen-portal" class="screen-view active max-w-md mx-auto my-auto w-full py-6">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200 text-center">
+        <div class="w-24 h-24 rounded-3xl bg-white border border-emerald-100 p-2 shadow-lg shadow-emerald-700/10 mx-auto mb-5 overflow-hidden flex items-center justify-center">
+          <img id="portalBrandLogo" src="" class="w-full h-full object-contain" alt="Brand Logo">
+        </div>
+        <h2 class="text-xl font-black text-slate-900">Punjab Assessment</h2>
+        <p class="text-xs text-slate-500 mt-1 mb-6">Select your portal.</p>
+        <div class="grid grid-cols-2 gap-3 mb-6">
+          <button onclick="showScreen('screen-student-login')" class="p-4 rounded-2xl border-2 border-slate-200 hover:border-emerald-600 hover:bg-emerald-50 transition text-center group">
+            <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">🎓</div>
+            <div class="font-bold text-sm text-slate-800">Student Portal</div>
+          </button>
+          <button onclick="showScreen('screen-staff-login')" class="p-4 rounded-2xl border-2 border-slate-200 hover:border-emerald-600 hover:bg-emerald-50 transition text-center group">
+            <div class="text-3xl mb-2 group-hover:scale-110 transition-transform">🔐</div>
+            <div class="font-bold text-sm text-slate-800">Staff & Admin</div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 2: STUDENT LOGIN -->
+    <div id="screen-student-login" class="screen-view max-w-sm mx-auto my-auto w-full py-6">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200">
+        <h2 class="text-xl font-black text-slate-900 mb-1">Student Portal</h2>
+        <p class="text-xs text-slate-500 mb-5">Enter School EMIS & Admission Number.</p>
+        <div class="space-y-3.5 mb-5">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">8-Digit School EMIS Code</label>
+            <input type="text" id="studentEmisInput" maxlength="8" class="w-full text-base font-bold px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 tracking-wider">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 uppercase mb-1">Admission Number (admNo)</label>
+            <input type="text" id="studentAdmInput" class="w-full text-base font-bold px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500">
+          </div>
+        </div>
+        <button onclick="handleStudentLogin()" class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-md transition mb-3">Verify & Continue →</button>
+        <button onclick="showScreen('screen-portal')" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition">Back</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 3: SUBJECT SELECTION -->
+    <div id="screen-subjects" class="screen-view max-w-md mx-auto my-auto w-full py-6">
+      <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-200">
+        <div class="flex items-center justify-between mb-1">
+          <h2 id="studentWelcomeName" class="text-lg font-black text-slate-900">Welcome, Student</h2>
+          <span id="studentClassBadge" class="text-xs font-bold px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-lg">Class</span>
+        </div>
+        <div id="studentSchoolSub" class="text-[11px] font-semibold text-slate-500 mb-4 truncate">EMIS: ----</div>
+        <div id="subjectListContainer" class="space-y-2.5 mb-6"></div>
+        <button onclick="showScreen('screen-portal')" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition">Switch User</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 3B: UNIT & TOPIC SELECTOR -->
+    <div id="screen-unit-topic" class="screen-view max-w-lg mx-auto my-auto w-full py-4">
+      <div class="bg-white rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col max-h-[92vh]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <span id="unitTopicSubjBadge" class="text-xs font-black uppercase px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">Subj</span>
+            </div>
+            <h2 class="text-base font-black text-slate-900 mt-1">Select Units & Topics</h2>
+          </div>
+          <button onclick="showScreen('screen-subjects')" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-arrow-left"></i></button>
+        </div>
+        <div class="flex-1 overflow-y-auto space-y-4">
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            <div class="flex justify-between items-center mb-2">
+              <label class="text-[11px] font-black uppercase text-slate-700"><i class="fa-solid fa-book-bookmark text-emerald-600 mr-1"></i> 1. Choose Unit(s)</label>
+              <button onclick="toggleSelectAllUnits()" id="btnToggleAllUnits" class="text-[10px] font-bold text-emerald-700 bg-white border px-2 py-0.5 rounded-md">Select All</button>
+            </div>
+            <div id="unitCheckboxesList" class="space-y-1.5"></div>
+          </div>
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+            <label class="text-[11px] font-black uppercase text-slate-700 block mb-2"><i class="fa-solid fa-list-check text-emerald-600 mr-1"></i> 2. Choose Topic(s)</label>
+            <div class="grid grid-cols-2 gap-2 text-xs mb-2">
+              <label class="flex items-center p-2 rounded-xl bg-white border cursor-pointer"><input type="radio" name="topicMode" value="ALL" checked onchange="onTopicModeChanged()" class="mr-2"> <span class="font-bold text-[10px]">All Topics</span></label>
+              <label class="flex items-center p-2 rounded-xl bg-white border cursor-pointer"><input type="radio" name="topicMode" value="CUSTOM" onchange="onTopicModeChanged()" class="mr-2"> <span class="font-bold text-[10px]">Specific Topics</span></label>
+            </div>
+            <div id="specificTopicsWrap" class="hidden pt-2 border-t border-slate-200 space-y-2">
+              <div class="flex justify-between"><span class="text-[10px] font-semibold text-slate-500">Select topics:</span><button onclick="toggleSelectAllTopics()" id="btnToggleAllTopics" class="text-[10px] font-bold text-emerald-700 bg-white border px-2 py-0.5 rounded-md">Select All</button></div>
+              <div id="topicChipsContainer" class="flex flex-wrap gap-1.5 p-1"></div>
+            </div>
+          </div>
+        </div>
+        <div class="pt-3 border-t border-slate-200 mt-3 space-y-2">
+          <div class="flex justify-between text-xs px-1"><span class="text-slate-500 font-medium">Question Bank:</span><span id="unitTopicPoolCount" class="font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">0 Qs</span></div>
+          <button id="btnStartCustomQuiz" onclick="startConfiguredQuiz()" class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-xl disabled:bg-slate-300">Start Assessment <i class="fa-solid fa-play text-xs ml-1"></i></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 4: QUIZ SHELL -->
+    <div id="screen-quiz" class="screen-view max-w-md mx-auto my-auto w-full py-4">
+      <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col min-h-[550px]">
+        <div class="px-5 py-3 border-b border-slate-100 flex justify-between items-center">
+          <div>
+            <div class="flex items-center gap-1.5"><span id="quizSubjectBadge" class="text-xs font-black uppercase px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-md">Subj</span><span id="quizUnitBadge" class="text-[11px] font-bold text-slate-500">Unit</span></div>
+            <div id="quizTopicBadge" class="text-[11px] font-semibold text-emerald-700 truncate max-w-[200px] mt-0.5">Topic</div>
+          </div>
+          <div id="quizTimerBox" class="flex items-center gap-1.5 text-xs font-black px-3 py-1 rounded-full bg-slate-100"><i class="fa-regular fa-clock"></i> <span id="quizTimerText">15s</span></div>
+        </div>
+        <div class="w-full h-1.5 bg-slate-100"><div id="quizProgressFill" class="h-full bg-emerald-600 transition-all" style="width:0%;"></div></div>
+        <div class="p-5 flex-1 flex flex-col">
+          <span id="quizCounterLabel" class="text-xs font-bold text-slate-400 mb-1">Question X of Y</span>
+          <h3 id="quizQuestionText" class="text-base sm:text-lg font-bold text-slate-900 leading-snug mb-5">Load</h3>
+          <div id="quizOptionsContainer" class="space-y-3 flex-1 flex flex-col justify-center"></div>
+        </div>
+        <div class="p-4 bg-slate-50"><button id="quizNextBtn" onclick="nextQuizQuestion()" class="w-full py-3 bg-emerald-700 text-white font-bold rounded-xl disabled:bg-slate-300" disabled>Next Question <i class="fa-solid fa-arrow-right"></i></button></div>
+      </div>
+    </div>
+
+    <!-- SCREEN 5: RESULTS -->
+    <div id="screen-quiz-results" class="screen-view max-w-md mx-auto my-auto w-full py-6">
+      <div class="bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 text-center">
+        <h2 class="text-xl font-black text-slate-900 mb-1">Test Completed!</h2>
+        <p class="text-xs text-emerald-700 font-semibold mb-4"><i class="fa-solid fa-circle-check"></i> Score saved in offline queue & school register.</p>
+        <div class="relative w-32 h-32 mx-auto my-3 flex items-center justify-center rounded-full bg-slate-100">
+          <div class="text-center"><span id="resultPercentText" class="text-2xl font-black text-slate-900">0%</span><span class="block text-[10px] font-bold text-slate-400 uppercase">Accuracy</span></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2 my-4">
+          <div class="bg-slate-50 border p-2.5 rounded-xl"><div id="statCorrectText" class="text-lg font-black text-emerald-600">0</div><div class="text-[10px] text-slate-400 font-bold">Correct</div></div>
+          <div class="bg-slate-50 border p-2.5 rounded-xl"><div id="statScaled10Text" class="text-lg font-black text-amber-600">0/10</div><div class="text-[10px] text-slate-400 font-bold">Register</div></div>
+          <div class="bg-slate-50 border p-2.5 rounded-xl"><div id="statTotalText" class="text-lg font-black text-slate-700">0</div><div class="text-[10px] text-slate-400 font-bold">Questions</div></div>
+        </div>
+        <div class="space-y-2 pt-2">
+          <button onclick="showScreen('screen-unit-topic')" class="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl transition">Take Another Test</button>
+          <button onclick="showScreen('screen-portal')" class="w-full py-2 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl">Exit</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 6: STAFF LOGIN -->
+    <div id="screen-staff-login" class="screen-view max-w-sm mx-auto my-auto w-full py-6">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-200">
+        <h2 class="text-xl font-black text-slate-900 mb-1">Staff / Admin</h2>
+        <p class="text-xs text-slate-500 mb-5">Teachers manage their EMIS. Central Admin accesses all schools.</p>
+        <div class="space-y-3.5 mb-5">
+          <input type="text" id="staffUserInput" placeholder="Username" class="w-full text-sm font-bold px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+          <input type="password" id="staffPassInput" placeholder="Password" class="w-full text-sm font-bold px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-emerald-500 outline-none">
+        </div>
+        <button onclick="handleStaffLogin()" class="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-sm rounded-xl shadow-md transition mb-3">Authorize & Access →</button>
+        <button onclick="showScreen('screen-portal')" class="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl">Back</button>
+      </div>
+    </div>
+
+    <!-- SCREEN 7: ADMIN SETTINGS -->
+    <div id="screen-admin" class="screen-view max-w-xl mx-auto my-auto w-full py-6">
+      <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-200">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+          <div><h2 class="text-lg font-black text-slate-900">Admin Console</h2></div>
+          <span class="text-xs font-bold px-2 py-1 bg-amber-100 text-amber-900 rounded-lg">Settings</span>
+        </div>
+        <div class="space-y-4 text-xs">
+          <div class="bg-emerald-50/60 p-3.5 rounded-2xl border border-emerald-200">
+            <label class="block font-extrabold text-emerald-950 uppercase tracking-wide text-[11px] mb-2"><i class="fa-solid fa-image"></i> Brand Logo</label>
+            <div class="flex items-center gap-3">
+              <div class="w-14 h-14 rounded-xl bg-white border p-1"><img id="adminLogoPreview" src="" class="w-full h-full object-contain"></div>
+              <div class="flex-1 space-y-1.5">
+                <input type="text" id="cfgBrandLogoUrl" placeholder="Image URL..." onchange="previewLogo(this.value)" class="w-full p-2 bg-white border rounded-xl">
+                <div class="flex items-center gap-2">
+                  <label class="px-3 py-1.5 bg-emerald-700 text-white font-bold rounded-lg cursor-pointer text-[10px]"><i class="fa-solid fa-upload"></i> Upload File<input type="file" accept="image/*" class="hidden" onchange="handleLogoFileUpload(event)"></label>
+                  <button type="button" onclick="resetDefaultLogo()" class="px-2 py-1 bg-slate-200 font-bold rounded-lg text-[10px]">Reset Default</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div><label class="font-bold text-slate-700 block mb-1">Google Apps Script Web App URL</label><input type="url" id="cfgGasUrlInput" placeholder="Leave blank to use App Inventor blocks URL..." class="w-full p-2.5 bg-slate-50 border rounded-xl font-mono text-xs"></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="font-bold text-slate-700 block mb-1">Questions Per Test</label><input type="number" id="cfgQuestionsLimit" value="10" class="w-full p-2.5 bg-slate-50 border rounded-xl font-bold"></div>
+            <div><label class="font-bold text-slate-700 block mb-1">Timer (Seconds)</label><input type="number" id="cfgTimerSec" value="15" class="w-full p-2.5 bg-slate-50 border rounded-xl font-bold"></div>
+          </div>
+        </div>
+        <div class="flex gap-2 pt-5 border-t border-slate-200 mt-5">
+          <button onclick="saveAdminSettings()" class="flex-1 py-2.5 bg-emerald-700 text-white font-bold text-xs rounded-xl">Save Config</button>
+          <button onclick="showScreen('screen-reports')" class="px-4 py-2.5 bg-slate-100 text-slate-700 font-bold text-xs rounded-xl">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- SCREEN 8: SED REGISTER -->
+    <div id="screen-reports" class="screen-view w-full space-y-4">
+      <section class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3 no-print">
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-100">
+          <div class="flex items-center flex-wrap gap-2">
+            <div id="adminSchoolSwitcherWrap" class="hidden items-center gap-1.5 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl">
+              <span class="text-[10px] font-black text-emerald-800"><i class="fa-solid fa-building-columns"></i> School:</span>
+              <select id="adminSchoolSelect" onchange="onAdminSwitchSchool()" class="text-xs font-bold bg-transparent text-emerald-950 outline-none w-32 truncate"></select>
+            </div>
+            <div class="bg-slate-100 p-1 rounded-xl flex items-center text-xs font-bold">
+              <button onclick="switchRegisterPage('page1')" id="tabBtn1" class="px-3 py-1.5 rounded-lg bg-white shadow-sm text-emerald-900 transition">Student Record</button>
+              <button onclick="switchRegisterPage('page2')" id="tabBtn2" class="px-3 py-1.5 rounded-lg text-slate-600 transition">Class Summary</button>
+            </div>
+          </div>
+          <div class="flex items-center flex-wrap gap-2">
+            <button onclick="fetchSchoolDataSync()" class="px-3 py-1.5 text-[10px] sm:text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg"><i class="fa-solid fa-arrows-rotate"></i> Sync Cloud</button>
+            <button onclick="queueRegisterSave()" class="px-3 py-1.5 text-[10px] sm:text-xs font-bold text-white bg-emerald-700 rounded-lg shadow-sm"><i class="fa-solid fa-floppy-disk"></i> Save Local & Sync</button>
+            <button onclick="triggerPrintReport()" class="px-3 py-1.5 text-[10px] sm:text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-lg"><i class="fa-solid fa-print"></i> Print A4</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div><label class="block text-[10px] font-extrabold text-slate-500 uppercase">Class</label><select id="regClassSelect" onchange="onClassChange()" class="w-full text-xs font-bold bg-slate-50 border rounded-lg p-2"></select></div>
+          <div><label class="block text-[10px] font-extrabold text-slate-500 uppercase">Section</label><input type="text" id="regSectionInput" value="A" oninput="updateHeaderMetadata()" class="w-full text-xs font-bold bg-slate-50 border rounded-lg p-2 uppercase"></div>
+          <div><label class="block text-[10px] font-extrabold text-slate-500 uppercase">Subject</label><select id="regSubjectSelect" onchange="updateHeaderMetadata()" class="w-full text-xs font-bold bg-slate-50 border rounded-lg p-2"></select></div>
+          <div><label class="block text-[10px] font-extrabold text-slate-500 uppercase">Month</label><input type="month" id="regMonthPicker" value="2026-10" onchange="onMonthChange()" class="w-full text-xs font-bold bg-slate-50 border rounded-lg p-2"></div>
+          <div>
+            <label class="block text-[10px] font-extrabold text-emerald-800 uppercase">Report Scope</label>
+            <select id="regReportTypeSelect" onchange="onReportTypeChange()" class="w-full text-xs font-black bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-lg p-2">
+              <option value="monthly" selected>Monthly (1-31)</option>
+              <option value="fortnightly_1">1st Half (1-15)</option>
+              <option value="fortnightly_2">2nd Half (16-31)</option>
+              <option value="daily">Specific Day</option>
+            </select>
+          </div>
+        </div>
+        <div id="dailySpecificRow" class="hidden pt-2 flex items-center gap-3"><span class="text-xs font-bold">Select Day:</span><select id="specificDaySelect" onchange="updateCalendar()" class="text-xs font-bold bg-slate-50 border rounded-lg p-1.5 w-24"></select></div>
+      </section>
+
+      <!-- PRINTABLE AREA (A4 Landscape Constraints) -->
+      <div class="space-y-6 print:space-y-0">
+        <!-- REPORT PAGE 1 -->
+        <div id="reportPage1" class="report-card bg-white rounded-2xl shadow-xl border border-slate-200 p-4 page-break">
+          <div class="border-b-2 border-slate-800 pb-2 mb-2">
+            <div class="flex justify-between items-center text-center">
+              <div class="flex-1 text-left"><h2 class="text-xs font-black uppercase">School Education Dept</h2><p class="text-[9px] font-semibold">Brighter Punjab</p></div>
+              <div class="flex-1">
+                <div class="sheet-green-dark text-white font-bold text-sm px-2 py-0.5 uppercase"><span id="p1TitleReportType">MONTHLY</span> REGISTER</div>
+                <div class="sheet-yellow-head font-bold text-[10px] uppercase border mt-0.5">STUDENT RECORD (Page 1) • <span id="p1SubtitleRange">OCT 2026</span></div>
+              </div>
+              <div class="flex-1 text-right font-black text-[10px]">PUNJAB SED</div>
+            </div>
+            <div class="mt-2 bg-slate-50 border p-1 grid grid-cols-4 gap-1 text-[9px]">
+              <div><b class="text-slate-400">School:</b> <span id="p1SchoolName" class="font-bold block truncate">School Name</span></div>
+              <div><b class="text-slate-400">EMIS:</b> <span id="p1EmisCode" class="font-bold block">33140426</span></div>
+              <div><b class="text-slate-400">Class & Sec:</b> <span id="p1ClassSec" class="font-bold block">Class 8-A</span></div>
+              <div><b class="text-slate-400">Subject:</b> <span id="p1Subject" class="font-bold block">Computer</span></div>
+            </div>
+          </div>
+
+          <div class="table-responsive-wrapper border border-slate-400">
+            <table class="w-full text-[9px] text-center border-collapse border border-slate-400" style="table-layout: fixed;">
+              <thead>
+                <tr>
+                  <th rowspan="2" class="sheet-green-dark border py-1 w-[3%]">Sr</th>
+                  <th rowspan="2" class="sheet-green-dark border py-1 w-[12%] text-left px-1">Name</th>
+                  <th rowspan="2" class="sheet-green-dark border py-1 w-[4%]">Roll</th>
+                  <th id="p1DailyHeader" colspan="31" class="sheet-green-mid border py-0.5">Daily Test Marks (Out of 10)</th>
+                  <th rowspan="2" class="sheet-green-mid border py-1 w-[4%]">Total</th>
+                  <th rowspan="2" class="sheet-green-mid border py-1 w-[4%]">Avg</th>
+                  <th rowspan="2" class="sheet-yellow-head border py-1 w-[5%]">SBA</th>
+                  <th rowspan="2" class="sheet-blue-head border py-1 w-[12%]">Remarks</th>
+                </tr>
+                <tr id="p1SubHeaderDaysRow"></tr>
+              </thead>
+              <tbody id="p1TableBody"></tbody>
+            </table>
+          </div>
+          
+          <div class="flex justify-between items-end pt-2 text-[9px] mt-2 font-bold print-footer-page">
+            <div>Teacher: <span id="p1InchargeName">Incharge</span></div>
+            <div>Head Teacher: ____________</div>
+            <div>AEO: ____________</div>
+          </div>
+        </div>
+
+        <!-- REPORT PAGE 2 -->
+        <div id="reportPage2" class="report-card bg-white rounded-2xl shadow-xl border border-slate-200 p-4 hidden">
+          <div class="border-b-2 border-slate-800 pb-2 mb-2">
+            <div class="flex justify-between items-center text-center">
+              <div class="flex-1 text-left"><h2 class="text-xs font-black uppercase">School Education Dept</h2><p class="text-[9px] font-semibold">Brighter Punjab</p></div>
+              <div class="flex-1">
+                <div class="sheet-green-dark text-white font-bold text-sm px-2 py-0.5 uppercase"><span id="p2TitleReportType">MONTHLY</span> REGISTER</div>
+                <div class="sheet-yellow-head font-bold text-[10px] uppercase border mt-0.5">CLASS SUMMARY (Page 2) • <span id="p2SubtitleRange">OCT 2026</span></div>
+              </div>
+              <div class="flex-1 text-right font-black text-[10px]">PUNJAB SED</div>
+            </div>
+          </div>
+
+          <div class="table-responsive-wrapper border border-slate-400">
+            <table class="w-full text-[9px] text-center border-collapse border border-slate-400" style="table-layout: fixed;">
+              <thead>
+                <tr class="sheet-green-dark text-white font-bold">
+                  <th class="border py-1 w-[4%]">Date</th>
+                  <th class="border py-1 w-[4%]">Day</th>
+                  <th class="border py-1 text-left px-1 w-[18%]">Topic Tested</th>
+                  <th class="border py-1 w-[4%]">Tot</th>
+                  <th class="border py-1 w-[4%]">Pre</th>
+                  <th class="border py-1 w-[4%]">Abs</th>
+                  <th class="border py-1 w-[5%]">Avg</th>
+                  <th class="border py-1 w-[5%]">&lt;5</th>
+                  <th class="border py-1 text-left px-1 w-[26%]">Learning Gaps</th>
+                  <th class="sheet-blue-head border py-1 text-left px-1 w-[26%]">Remedial Action</th>
+                </tr>
+              </thead>
+              <tbody id="p2TableBody"></tbody>
+            </table>
+          </div>
+          <div class="flex justify-end items-end pt-2 text-[9px] mt-2 font-bold print-footer-page">
+            Head Teacher Verified: _________________
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- MASTER KEY MODAL -->
+  <div id="masterKeyModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl text-center">
+      <div class="w-12 h-12 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3 text-xl"><i class="fa-solid fa-key"></i></div>
+      <h3 class="text-base font-black mb-1">Developer Bypass</h3>
+      <input type="password" id="masterKeyInput" placeholder="••••••" class="w-full text-center text-xl tracking-widest font-bold py-2.5 bg-slate-50 border rounded-xl mb-4 focus:ring-emerald-500">
+      <button onclick="verifyMasterKey()" class="w-full py-2.5 bg-emerald-700 text-white font-bold text-xs rounded-xl mb-2">Bypass →</button>
+      <button onclick="closeMasterKeyModal()" class="w-full py-2 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl">Cancel</button>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-5 right-5 hidden bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-2xl z-50 items-center gap-2">
+    <i class="fa-solid fa-circle-check text-emerald-400"></i><span id="toastMsg">Done.</span>
+  </div>
+
+  <script>
+    const DEFAULT_BRAND_LOGO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='48' fill='%23059669'/><path d='M30 45 L50 25 L70 45 L50 65 Z' fill='%23ffffff'/><circle cx='50' cy='45' r='8' fill='%23ffd966'/><text x='50' y='82' font-size='11' font-family='sans-serif' font-weight='bold' fill='%23ffffff' text-anchor='middle'>ASSESS</text></svg>";
+
+    function resolveGasUrl() {
+      const manualUrl = localStorage.getItem("app_gas_url");
+      if (manualUrl && manualUrl.trim().length > 0) return manualUrl.trim();
+      try {
+        if (window.AppInventor && typeof window.AppInventor.getWebViewString === "function") {
+          const blockUrl = window.AppInventor.getWebViewString();
+          if (blockUrl && blockUrl.trim().length > 0 && blockUrl !== "ACTION_PRINT") return blockUrl.trim();
+        }
+      } catch (e) {}
+      return "";
+    }
+
+    // LOCAL DB & SYNC QUEUE SYSTEM
+    const LocalDB = {
+      get: (key) => { try { return JSON.parse(localStorage.getItem(key)) || null; } catch(e){ return null; } },
+      set: (key, val) => { localStorage.setItem(key, JSON.stringify(val)); },
+      pushQueue: (task) => {
+        let q = LocalDB.get("offline_sync_queue") || [];
+        q.push(task); LocalDB.set("offline_sync_queue", q); processSyncQueue();
+      }
+    };
+
+    const state = {
+      gasUrl: resolveGasUrl(),
+      currentUser: LocalDB.get("app_session") || null,
+      cachedMasterKey: localStorage.getItem("app_master_key") || "786605",
+      brandLogo: localStorage.getItem("app_brand_logo") || DEFAULT_BRAND_LOGO,
+      questionsPerTest: 10,
+      timerSeconds: 15,
+      activeEmis: localStorage.getItem("app_last_emis") || "33140426",
+      activeSchoolName: localStorage.getItem("app_last_school") || "Govt. School",
+      allSchools: LocalDB.get("db_schools") || [],
+      
+      // Unit & Topic Configuration State
+      selectedSubject: "",
+      unitMapData: {},
+      selectedUnits: new Set(),
+      topicSelectionMode: "ALL",
+      selectedTopics: new Set(),
+      
+      quizQuestions: [], quizIndex: 0, quizScore: 0, quizTimer: 15, quizInterval: null,
+      
+      students: LocalDB.get("db_students") || [],
+      subjects: LocalDB.get("db_subjects") || [],
+      marksRecord: LocalDB.get("db_marks") || {}, 
+      summaries: LocalDB.get("db_summaries") || {}, 
+      questionsBank: LocalDB.get("db_questions") || [],
+      learningGapsRules: LocalDB.get("db_gaps") || [],
+      remedialActionsRules: LocalDB.get("db_remedials") || [],
+      offDays: new Set([0, 6]),
+      selectedYear: 2026, selectedMonthIndex: 9, activeStartDay: 1, activeEndDay: 31
+    };
+
+    function triggerPrintReport() {
+      if (window.AppInventor && typeof window.AppInventor.setWebViewString === "function") {
+        window.AppInventor.setWebViewString("ACTION_PRINT");
+      } else { window.print(); }
+    }
+
+    function showLoader(msg = "Loading...") {
+      document.getElementById("loaderText").innerText = msg;
+      document.getElementById("globalLoader").classList.remove("hidden");
+    }
+    function hideLoader() { document.getElementById("globalLoader").classList.add("hidden"); }
+    function showToast(msg) {
+      const t = document.getElementById("toast"); document.getElementById("toastMsg").innerText = msg;
+      t.classList.remove("hidden"); t.classList.add("flex");
+      setTimeout(() => { t.classList.add("hidden"); t.classList.remove("flex"); }, 3000);
+    }
+    function showScreen(id) {
+      document.querySelectorAll(".screen-view").forEach(s => s.classList.remove("active"));
+      document.getElementById(id).classList.add("active");
+    }
+
+    function applyBrandLogo(url) {
+      const target = url || DEFAULT_BRAND_LOGO; state.brandLogo = target; localStorage.setItem("app_brand_logo", target);
+      document.getElementById("loaderBrandLogo").src = target; document.getElementById("headerBrandLogo").src = target;
+      document.getElementById("portalBrandLogo").src = target; document.getElementById("adminLogoPreview").src = target;
+      document.getElementById("printWatermarkLogo").src = target;
+    }
+    function previewLogo(val) { if(val) applyBrandLogo(val); }
+    function resetDefaultLogo() { applyBrandLogo(DEFAULT_BRAND_LOGO); document.getElementById("cfgBrandLogoUrl").value = ""; }
+    function handleLogoFileUpload(e) {
+      const f = e.target.files[0]; if(!f) return;
+      const r = new FileReader(); r.onload = (evt) => { applyBrandLogo(evt.target.result); document.getElementById("cfgBrandLogoUrl").value = evt.target.result; }; r.readAsDataURL(f);
+    }
+
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playBeep(success) {
+      if(audioCtx.state==='suspended') audioCtx.resume();
+      const osc = audioCtx.createOscillator(); const gain = audioCtx.createGain();
+      osc.connect(gain); gain.connect(audioCtx.destination);
+      if(success) { osc.frequency.setValueAtTime(587, audioCtx.currentTime); osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime+0.15); gain.gain.setValueAtTime(0.1, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.2); } 
+      else { osc.frequency.setValueAtTime(220, audioCtx.currentTime); osc.frequency.linearRampToValueAtTime(140, audioCtx.currentTime+0.2); gain.gain.setValueAtTime(0.12, audioCtx.currentTime); gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime+0.2); }
+      osc.start(); osc.stop(audioCtx.currentTime+0.2);
+    }
+    function triggerHaptic(type) { if("vibrate" in navigator) navigator.vibrate(type==='success'?40:[60,40,60]); }
+
+    // OFFLINE SYNC PROCESSOR
+    async function processSyncQueue() {
+      if (!navigator.onLine) return updateSyncIndicator();
+      let q = LocalDB.get("offline_sync_queue") || []; if (q.length === 0) return updateSyncIndicator();
+      updateSyncIndicator(true); state.gasUrl = resolveGasUrl(); if (!state.gasUrl) return;
+
+      try {
+        const res = await fetch(state.gasUrl, { method: "POST", headers: {"Content-Type":"text/plain"}, body: JSON.stringify({ action: "bulkSync", queue: q }) });
+        const data = await res.json();
+        if (data.success) { LocalDB.set("offline_sync_queue", []); showToast("Cloud Synchronized!"); }
+      } catch (e) { console.warn("Sync failed, will retry.", e); }
+      updateSyncIndicator();
+    }
+    window.addEventListener('online', processSyncQueue);
+    window.addEventListener('offline', updateSyncIndicator);
+
+    function updateSyncIndicator(isSyncing = false) {
+      const el = document.getElementById("cloudSyncStatus"); let q = LocalDB.get("offline_sync_queue") || [];
+      if (!navigator.onLine) el.innerHTML = `<span class="text-red-500">●</span> Offline (${q.length} pending)`;
+      else if (isSyncing) el.innerHTML = `<span class="text-amber-500 animate-pulse">●</span> Syncing...`;
+      else if (q.length > 0) el.innerHTML = `<span class="text-amber-500">●</span> Pending Sync (${q.length})`;
+      else el.innerHTML = state.gasUrl ? `<span class="text-emerald-500">●</span> Cloud Synced` : `<span class="text-slate-400">●</span> Local Mode`;
+    }
+
+    async function fetchSchoolDataSync() {
+      if (!navigator.onLine) return showToast("You are offline. Cannot pull data.");
+      showLoader(`Pulling EMIS ${state.activeEmis} Records...`);
+      state.gasUrl = resolveGasUrl();
+      try {
+        const res = await fetch(state.gasUrl, { method: "POST", headers: {"Content-Type":"text/plain"}, body: JSON.stringify({ action: "fetchSchoolData", emisCode: state.activeEmis }) });
+        const d = await res.json();
+        if (d.success) {
+          state.activeEmis = d.targetEmis; state.activeSchoolName = d.schoolInfo.schoolName;
+          localStorage.setItem("app_last_emis", state.activeEmis); localStorage.setItem("app_last_school", state.activeSchoolName);
+          if (d.brandLogo) applyBrandLogo(d.brandLogo);
+          if (d.learningGaps) { state.learningGapsRules = d.learningGaps; LocalDB.set("db_gaps", d.learningGaps); }
+          if (d.remedialActions) { state.remedialActionsRules = d.remedialActions; LocalDB.set("db_remedials", d.remedialActions); }
+          if (d.questionsBank) { state.questionsBank = d.questionsBank; LocalDB.set("db_questions", d.questionsBank); }
+          if (d.allSchools) { state.allSchools = d.allSchools; LocalDB.set("db_schools", d.allSchools); }
+
+          state.students = (d.students && d.students.length > 1) ? d.students.slice(1).map(r=>({emisCode:r[0], studentClass:r[1], rollNo:r[2], name:r[3], admNo:r[4], section:r[5]||"A"})) : []; LocalDB.set("db_students", state.students);
+          state.subjects = (d.subjects && d.subjects.length > 1) ? d.subjects.slice(1).map(r=>({class:r[1], subject:r[2], incharge:r[3]})) : []; LocalDB.set("db_subjects", state.subjects);
+
+          state.marksRecord = {};
+          if(d.marks && d.marks.length > 1) {
+            d.marks.slice(1).forEach(r => {
+              const adm = r[7]; if(!state.marksRecord[adm]) state.marksRecord[adm] = { marks: {}, sba: r[39]||0, remarks: r[40]||"" };
+              for(let day=1; day<=31; day++) state.marksRecord[adm].marks[day] = r[7+day];
+            });
+          }
+          LocalDB.set("db_marks", state.marksRecord);
+
+          state.summaries = {};
+          if(d.summaries && d.summaries.length > 1) {
+            d.summaries.slice(1).forEach(r => {
+              const dateStr = String(r[4]||""); const dayNum = parseInt(dateStr.split("/")[0], 10);
+              if(!isNaN(dayNum)) state.summaries[dayNum] = { topic: r[6]||"", gaps: r[12]||"", remedial: r[13]||"" };
+            });
+          }
+          LocalDB.set("db_summaries", state.summaries);
+
+          showToast("Data Synced from Cloud!");
+          populateRegisterDropdowns(); updateAdminSchoolSwitcher(); updateHeaderMetadata();
+        }
+      } catch (e) {
+        showToast("Using local offline database.");
+        populateRegisterDropdowns(); updateAdminSchoolSwitcher(); updateHeaderMetadata();
+      } finally { hideLoader(); updateSyncIndicator(); }
+    }
+
+    // MULTI-SCHOOL STUDENT LOGIN
+    async function handleStudentLogin() {
+      const emis = document.getElementById("studentEmisInput").value.trim(); const adm = document.getElementById("studentAdmInput").value.trim();
+      if (!emis || !adm) return alert("Fill EMIS and Admission Number.");
+      
+      const localStd = state.students.find(s => s.admNo === adm && s.emisCode === emis);
+      if(!navigator.onLine && localStd) { loginStudentSuccess(localStd); return showToast("Offline Login Success"); }
+
+      showLoader("Authenticating..."); state.gasUrl = resolveGasUrl();
+      try {
+        const res = await fetch(state.gasUrl, { method: "POST", headers: {"Content-Type":"text/plain"}, body: JSON.stringify({ action: "studentLogin", emisCode: emis, admNo: adm }) });
+        const data = await res.json();
+        if(data.success) loginStudentSuccess(data.student); else alert(data.message);
+      } catch(e) { alert("Network Error. Cannot verify online."); } finally { hideLoader(); }
+    }
+
+    function loginStudentSuccess(studentObj) {
+      state.currentUser = { role: "Student", data: studentObj }; LocalDB.set("app_session", state.currentUser);
+      state.activeEmis = studentObj.emisCode; localStorage.setItem("app_last_emis", state.activeEmis);
+      updateAppRolesUI();
+      document.getElementById("studentWelcomeName").innerText = `Welcome, ${studentObj.name}`;
+      document.getElementById("studentClassBadge").innerText = `${studentObj.studentClass} (${studentObj.section})`;
+      document.getElementById("studentSchoolSub").innerText = `EMIS: ${studentObj.emisCode} • Roll #${studentObj.rollNo}`;
+      loadStudentSubjects(studentObj.studentClass);
+      showScreen("screen-subjects");
+    }
+
+    function loadStudentSubjects(stdClass) {
+      const container = document.getElementById("subjectListContainer"); container.innerHTML = "";
+      const subs = {};
+      state.questionsBank.forEach(q => {
+        if(String(q[1]).toLowerCase() === stdClass.toLowerCase()) {
+          const s = String(q[2]); if(!subs[s]) subs[s] = { count:0, lang: q[0] }; subs[s].count++;
+        }
+      });
+      if(Object.keys(subs).length > 0) {
+        for(const [subj, info] of Object.entries(subs)) {
+          const btn = document.createElement("button");
+          btn.className = "w-full p-3.5 rounded-xl border border-slate-200 hover:bg-emerald-50 text-left flex items-center justify-between";
+          btn.innerHTML = `<div><div class="font-bold text-sm">${subj}</div><div class="text-[10px] text-slate-400">${info.count} Qs • Lang: ${info.lang}</div></div><i class="fa-solid fa-arrow-right text-emerald-600"></i>`;
+          btn.onclick = () => openUnitTopicSelector(subj); container.appendChild(btn);
+        }
+      } else { container.innerHTML = "<p class='text-xs'>No subjects found in offline bank.</p>"; }
+    }
+
+    // UNIT/TOPIC OFFLINE SELECTOR
+    function openUnitTopicSelector(subject) {
+      state.selectedSubject = subject;
+      document.getElementById("unitTopicSubjBadge").innerText = subject;
+      state.unitMapData = {};
+      state.questionsBank.forEach(q => {
+        if(String(q[1]).toLowerCase() === state.currentUser.data.studentClass.toLowerCase() && String(q[2]).toLowerCase() === subject.toLowerCase()) {
+          const u = String(q[3]||"Unit 1"); const t = String(q[4]||"General");
+          if(!state.unitMapData[u]) state.unitMapData[u] = { count: 0, topics: {} };
+          state.unitMapData[u].count++; state.unitMapData[u].topics[t] = (state.unitMapData[u].topics[t] || 0) + 1;
+        }
+      });
+      renderUnitCheckboxes(); showScreen("screen-unit-topic");
+    }
+
+    function renderUnitCheckboxes() {
+      const container = document.getElementById("unitCheckboxesList"); container.innerHTML = ""; state.selectedUnits.clear();
+      Object.keys(state.unitMapData).forEach(uName => {
+        state.selectedUnits.add(uName);
+        const row = document.createElement("label"); row.className = "flex justify-between p-2 rounded-xl border cursor-pointer hover:bg-emerald-50 text-xs";
+        row.innerHTML = `<div class="flex items-center"><input type="checkbox" value="${uName}" checked onchange="onUnitCheckboxChanged(this)" class="unit-cb rounded text-emerald-600 mr-2.5"><span class="font-bold">${uName}</span></div><span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full">${state.unitMapData[uName].count} Qs</span>`;
+        container.appendChild(row);
+      });
+      renderTopicChips(); calculateAvailablePool();
+    }
+    function toggleSelectAllUnits() {
+      const cbs = document.querySelectorAll(".unit-cb"); const allChecked = Array.from(cbs).every(cb => cb.checked); const target = !allChecked;
+      state.selectedUnits.clear(); cbs.forEach(cb => { cb.checked = target; if(target) state.selectedUnits.add(cb.value); });
+      document.getElementById("btnToggleAllUnits").innerText = target ? "Deselect All" : "Select All";
+      renderTopicChips(); calculateAvailablePool();
+    }
+    function onUnitCheckboxChanged(cb) { if(cb.checked) state.selectedUnits.add(cb.value); else state.selectedUnits.delete(cb.value); renderTopicChips(); calculateAvailablePool(); }
+    function onTopicModeChanged() { state.topicSelectionMode = document.querySelector('input[name="topicMode"]:checked').value; document.getElementById("specificTopicsWrap").classList.toggle("hidden", state.topicSelectionMode !== "CUSTOM"); calculateAvailablePool(); }
+    
+    function renderTopicChips() {
+      const container = document.getElementById("topicChipsContainer"); container.innerHTML = ""; state.selectedTopics.clear();
+      const avail = new Set();
+      state.selectedUnits.forEach(u => { if(state.unitMapData[u]) Object.keys(state.unitMapData[u].topics).forEach(t => avail.add(t)); });
+      avail.forEach(t => {
+        state.selectedTopics.add(t);
+        const chip = document.createElement("label"); chip.className = "topic-chip inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-900 border border-emerald-300 cursor-pointer transition";
+        chip.innerHTML = `<input type="checkbox" value="${t}" checked onchange="onTopicChipToggled(this, this.parentElement)" class="topic-cb hidden"><span>${t}</span><i class="fa-solid fa-check text-[10px]"></i>`;
+        container.appendChild(chip);
+      });
+    }
+    function onTopicChipToggled(cb, el) {
+      if(cb.checked) { state.selectedTopics.add(cb.value); el.className = "topic-chip inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-900 border border-emerald-300 cursor-pointer transition"; el.querySelector("i").className="fa-solid fa-check text-[10px]"; }
+      else { state.selectedTopics.delete(cb.value); el.className = "topic-chip inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-300 cursor-pointer transition"; el.querySelector("i").className="fa-solid fa-plus text-[10px] text-slate-400"; }
+      calculateAvailablePool();
+    }
+    function toggleSelectAllTopics() {
+      const cbs = document.querySelectorAll(".topic-cb"); const allChecked = Array.from(cbs).every(cb => cb.checked); const target = !allChecked;
+      state.selectedTopics.clear(); cbs.forEach(cb => { cb.checked = target; onTopicChipToggled(cb, cb.parentElement); });
+      document.getElementById("btnToggleAllTopics").innerText = target ? "Deselect All" : "Select All";
+    }
+    function calculateAvailablePool() {
+      let c = 0;
+      if(state.topicSelectionMode==="ALL") state.selectedUnits.forEach(u => { if(state.unitMapData[u]) c += state.unitMapData[u].count; });
+      else state.selectedUnits.forEach(u => { if(state.unitMapData[u]) Object.entries(state.unitMapData[u].topics).forEach(([t, tc]) => { if(state.selectedTopics.has(t)) c += tc; }); });
+      document.getElementById("unitTopicPoolCount").innerText = `${c} Qs Available`; document.getElementById("btnStartCustomQuiz").disabled = c===0;
+    }
+
+    // QUIZ RUNNER (Local Filtering)
+    function startConfiguredQuiz() {
+      if(state.selectedUnits.size===0) return alert("Select a unit.");
+      let uArr = Array.from(state.selectedUnits); let tArr = state.topicSelectionMode==="CUSTOM" ? Array.from(state.selectedTopics) : [];
+      let pool = [];
+      state.questionsBank.forEach(q => {
+        if(String(q[1]).toLowerCase()===state.currentUser.data.studentClass.toLowerCase() && String(q[2]).toLowerCase()===state.selectedSubject.toLowerCase()) {
+          if(uArr.includes(String(q[3]))) {
+            if(state.topicSelectionMode==="ALL" || tArr.includes(String(q[4]))) {
+              if(q[5]) pool.push({ language: q[0], class: q[1], subject: q[2], unitNo: q[3], topic: q[4], question: q[5], options: [q[6],q[7],q[8],q[9]], correct: String(q[10]).trim().toUpperCase() });
+            }
+          }
+        }
+      });
+      for(let x=pool.length-1; x>0; x--) { let y=Math.floor(Math.random()*(x+1)); [pool[x], pool[y]] = [pool[y], pool[x]]; }
+      if(pool.length > 0) {
+        state.quizQuestions = pool.slice(0, state.questionsPerTest); state.quizIndex = 0; state.quizScore = 0;
+        document.getElementById("quizSubjectBadge").innerText = state.selectedSubject;
+        loadQuizQuestion(); showScreen("screen-quiz");
+      } else alert("No questions matched criteria.");
+    }
+
+    function isUrduText(text, lang) { return (lang && String(lang).toLowerCase().includes("urdu")) || /[\u0600-\u06FF]/.test(text); }
+
+    function loadQuizQuestion() {
+      clearInterval(state.quizInterval); state.quizTimer = state.timerSeconds; updateQuizTimerDisplay();
+      const q = state.quizQuestions[state.quizIndex]; const total = state.quizQuestions.length;
+      const isUrdu = isUrduText(q.question, q.language);
+
+      document.getElementById("quizProgressFill").style.width = `${(state.quizIndex/total)*100}%`;
+      document.getElementById("quizCounterLabel").innerText = `Question ${state.quizIndex+1} of ${total}`;
+      document.getElementById("quizUnitBadge").innerText = q.unitNo||"";
+      document.getElementById("quizTopicBadge").innerText = q.topic?`Topic: ${q.topic}`:"";
+
+      const qEl = document.getElementById("quizQuestionText"); qEl.innerText = q.question;
+      qEl.className = isUrdu ? "text-base sm:text-lg font-bold text-slate-900 leading-relaxed mb-5 urdu-text" : "text-base sm:text-lg font-bold text-slate-900 leading-snug mb-5";
+      qEl.dir = isUrdu ? "rtl" : "ltr";
+
+      const nBtn = document.getElementById("quizNextBtn"); nBtn.disabled = true;
+      nBtn.innerHTML = (state.quizIndex===total-1) ? `Finish & Save <i class="fa-solid fa-check"></i>` : `Next Question <i class="fa-solid fa-arrow-right"></i>`;
+
+      const opts = document.getElementById("quizOptionsContainer"); opts.innerHTML = "";
+      ["A","B","C","D"].forEach((c, i) => {
+        const btn = document.createElement("button");
+        btn.className = "option-card w-full p-3 bg-white text-left font-semibold text-xs sm:text-sm flex items-center " + (isUrduText(q.options[i], q.language) ? "urdu-text" : "");
+        btn.innerHTML = `<span class="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center font-bold text-slate-600 mr-3 shrink-0">${c}</span><span class="flex-1">${q.options[i]}</span>`;
+        btn.onclick = () => selectQuizOption(c); opts.appendChild(btn);
+      });
+      startQuizTimer();
+    }
+
+    function startQuizTimer() {
+      const box = document.getElementById("quizTimerBox"); box.classList.remove("text-red-600", "bg-red-100");
+      state.quizInterval = setInterval(() => {
+        state.quizTimer--; updateQuizTimerDisplay();
+        if(state.quizTimer<=5) box.classList.add("text-red-600", "bg-red-100");
+        if(state.quizTimer<=0) { clearInterval(state.quizInterval); triggerHaptic('error'); playBeep(false); revealQuizAnswers(null); }
+      }, 1000);
+    }
+    function updateQuizTimerDisplay() { document.getElementById("quizTimerText").innerText = `${state.quizTimer}s`; }
+    function selectQuizOption(chosen) {
+      clearInterval(state.quizInterval);
+      const isRight = chosen === state.quizQuestions[state.quizIndex].correct;
+      if(isRight) { state.quizScore++; triggerHaptic('success'); playBeep(true); } else { triggerHaptic('error'); playBeep(false); }
+      revealQuizAnswers(chosen);
+    }
+    function revealQuizAnswers(chosen) {
+      const q = state.quizQuestions[state.quizIndex]; const cards = document.querySelectorAll(".option-card");
+      ["A","B","C","D"].forEach((c, i) => {
+        cards[i].disabled = true;
+        if(c===q.correct) cards[i].classList.add("correct"); else if(c===chosen) cards[i].classList.add("wrong");
+      });
+      document.getElementById("quizNextBtn").disabled = false;
+    }
+    function nextQuizQuestion() { state.quizIndex++; if(state.quizIndex < state.quizQuestions.length) loadQuizQuestion(); else finishAndAutoLogQuiz(); }
+
+    function lookupLearningGap(score) {
+      for(let i=1; i<state.learningGapsRules.length; i++) { if(score >= Number(state.learningGapsRules[i][1]) && score <= Number(state.learningGapsRules[i][2])) return state.learningGapsRules[i][3]; }
+      if(score<5) return "Difficulty grasping core concepts."; if(score<7.5) return "Incomplete conceptual clarity."; return "Sound conceptual understanding.";
+    }
+    function lookupRemedialAction(score) {
+      for(let i=1; i<state.remedialActionsRules.length; i++) { if(score >= Number(state.remedialActionsRules[i][1]) && score <= Number(state.remedialActionsRules[i][2])) return state.remedialActionsRules[i][3]; }
+      if(score<5) return "Reteach fundamentals via board illustrations."; if(score<7.5) return "Focused recap of errors."; return "Assign enrichment challenges.";
+    }
+
+    function finishAndAutoLogQuiz() {
+      clearInterval(state.quizInterval);
+      const total = state.quizQuestions.length; const pct = Math.round((state.quizScore/total)*100); const scaled10 = Math.round((state.quizScore/total)*10);
+      const distinctTopics = Array.from(new Set(state.quizQuestions.map(q=>q.topic).filter(Boolean))).join(", ") || state.quizSelectedSubject;
+
+      document.getElementById("resultPercentText").innerText = `${pct}%`;
+      document.getElementById("statCorrectText").innerText = state.quizScore;
+      document.getElementById("statScaled10Text").innerText = `${scaled10}/10`;
+      document.getElementById("statTotalText").innerText = total;
+      showScreen("screen-quiz-results");
+
+      const std = state.currentUser.data; const currentDay = new Date().getDate();
+      
+      if(!state.marksRecord[std.admNo]) state.marksRecord[std.admNo] = { marks: {}, sba: 0, remarks: "" };
+      state.marksRecord[std.admNo].marks[currentDay] = scaled10;
+      LocalDB.set("db_marks", state.marksRecord);
+
+      state.summaries[currentDay] = { topic: distinctTopics, gaps: lookupLearningGap(scaled10), remedial: lookupRemedialAction(scaled10) };
+      LocalDB.set("db_summaries", state.summaries);
+
+      LocalDB.pushQueue({
+        action: "saveAll",
+        payload: { emisCode: std.emisCode, class: std.studentClass, section: std.section||"A", month: new Date().toISOString().slice(0,7), studentRows: generateLocalStudentRows(std.studentClass, std.section||"A", new Date().toISOString().slice(0,7)), summaryRows: generateLocalSummaryRows(std.studentClass, std.section||"A", new Date().toISOString().slice(0,7)), isReset: false }
+      });
+      showToast("Score saved offline & queued for cloud sync!");
+    }
+
+    function generateLocalStudentRows(cls, sec, month) {
+      return state.students.filter(s=>s.studentClass===cls).map((st, i) => {
+        const rec = state.marksRecord[st.admNo] || { marks:{}, sba:0, remarks:"" };
+        const dayCols = []; let sum=0, count=0;
+        for(let d=1; d<=31; d++) { const val = rec.marks[d]!==undefined?rec.marks[d]:""; dayCols.push(val); if(val!==""&&!isNaN(val)){sum+=Number(val); count++;} }
+        return [state.activeEmis, cls, sec, month, i+1, st.name, st.rollNo, st.admNo, ...dayCols, sum, count>0?(sum/count).toFixed(1):0, rec.sba||0, rec.remarks||""];
+      });
+    }
+    function generateLocalSummaryRows(cls, sec, month) {
+      const rows = []; const dInM = new Date(state.selectedYear, state.selectedMonthIndex+1, 0).getDate(); const dNs = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      const list = state.students.filter(s=>s.studentClass===cls);
+      for(let day=1; day<=dInM; day++) {
+        const dObj = new Date(state.selectedYear, state.selectedMonthIndex, day);
+        if(state.offDays.has(dObj.getDay())) continue;
+        let pre=0, abs=0, sum=0, bel5=0;
+        list.forEach(st => { const val = state.marksRecord[st.admNo]?.marks[day]; if(val!==undefined&&val!==""&&String(val).toUpperCase()!=="A"){pre++; sum+=Number(val); if(Number(val)<5)bel5++;} else if(String(val).toUpperCase()==="A") abs++; });
+        const tData = state.summaries[day] || {topic:"", gaps:"", remedial:""};
+        rows.push([state.activeEmis, cls, sec, month, `${day}/${state.selectedMonthIndex+1}`, dNs[dObj.getDay()], tData.topic, list.length, pre, abs, pre>0?(sum/pre).toFixed(1):"-", bel5, tData.gaps, tData.remedial]);
+      }
+      return rows;
+    }
+
+    // ================= STAFF & REPORT REGISTER =================
+    async function handleStaffLogin() {
+      const u = document.getElementById("staffUserInput").value.trim(); const p = document.getElementById("staffPassInput").value.trim();
+      if(!u||!p) return alert("Fill credentials.");
+      
+      showLoader("Authorizing..."); state.gasUrl = resolveGasUrl();
+      try {
+        const res = await fetch(state.gasUrl, { method:"POST", body:JSON.stringify({action:"userLogin", username:u, password:p}) });
+        const data = await res.json();
+        if(data.success) {
+          state.currentUser = { role: data.role, name: data.name, emisCode: data.emisCode };
+          LocalDB.set("app_session", state.currentUser);
+          if(data.emisCode!=="ALL") state.activeEmis = data.emisCode;
+          updateAppRolesUI(); showScreen("screen-reports"); fetchSchoolDataSync();
+        } else alert(data.message);
+      } catch(e) { alert("Offline. Using cached session."); if(state.currentUser) { updateAppRolesUI(); showScreen("screen-reports"); fetchSchoolDataSync(); } }
+      finally { hideLoader(); }
+    }
+
+    function handleLogout() { state.currentUser=null; LocalDB.set("app_session", null); updateAppRolesUI(); showScreen("screen-portal"); }
+    function tryOpenReportsPortal() { if(!state.currentUser || state.currentUser.role==="Student") return alert("Denied."); showScreen("screen-reports"); fetchSchoolDataSync(); }
+    function openAdminSettings() {
+      if(!state.currentUser || (state.currentUser.role!=="Admin" && state.currentUser.role!=="Developer")) return alert("Admin required.");
+      document.getElementById("cfgGasUrlInput").value = localStorage.getItem("app_gas_url")||"";
+      document.getElementById("cfgQuestionsLimit").value = state.questionsPerTest;
+      document.getElementById("cfgBrandLogoUrl").value = state.brandLogo.startsWith("data:")?"":state.brandLogo;
+      document.getElementById("adminLogoPreview").src = state.brandLogo;
+      showScreen("screen-admin");
+    }
+
+    async function saveAdminSettings() {
+      const ig = document.getElementById("cfgGasUrlInput").value.trim();
+      if(ig) localStorage.setItem("app_gas_url", ig); else localStorage.removeItem("app_gas_url");
+      state.gasUrl = resolveGasUrl();
+      state.questionsPerTest = parseInt(document.getElementById("cfgQuestionsLimit").value)||10;
+      const mk = document.getElementById("cfgMasterKeyInput").value.trim(); if(mk) { state.cachedMasterKey = mk; localStorage.setItem("app_master_key", mk); }
+      const l = document.getElementById("cfgBrandLogoUrl").value.trim(); if(l) applyBrandLogo(l);
+      
+      LocalDB.pushQueue({ action: "updateSettings", payload: { questionsPerTest: state.questionsPerTest, brandLogo: state.brandLogo, newMasterKey: mk||undefined } });
+      showToast("Config Saved & Queued!"); showScreen("screen-reports");
+    }
+
+    function openMasterKeyModal() { document.getElementById("masterKeyInput").value = ""; document.getElementById("masterKeyModal").classList.remove("hidden"); document.getElementById("masterKeyModal").classList.add("flex"); }
+    function closeMasterKeyModal() { document.getElementById("masterKeyModal").classList.add("hidden"); document.getElementById("masterKeyModal").classList.remove("flex"); }
+    async function verifyMasterKey() {
+      const k = document.getElementById("masterKeyInput").value.trim(); if(!k) return;
+      if(k===state.cachedMasterKey) {
+        closeMasterKeyModal(); state.currentUser = { role:"Developer", name:"Super Dev", emisCode:"ALL" }; LocalDB.set("app_session", state.currentUser);
+        updateAppRolesUI(); showToast("Bypass Successful"); showScreen("screen-reports"); fetchSchoolDataSync();
+      } else alert("Invalid Key");
+    }
+
+    function updateAppRolesUI() {
+      const badge = document.getElementById("roleBadge"); const txt = document.getElementById("authActionText"); const rp = document.getElementById("navReportsBtn"); const adm = document.getElementById("navAdminBtn"); const sw = document.getElementById("adminSchoolSwitcherWrap");
+      if(state.currentUser) {
+        badge.innerText = state.currentUser.role; txt.innerText = "Logout";
+        if(["Teacher","Admin","Developer"].includes(state.currentUser.role)) rp.classList.remove("hidden");
+        if(["Admin","Developer"].includes(state.currentUser.role)) { adm.classList.remove("hidden"); sw.classList.remove("hidden"); sw.classList.add("flex"); } else { sw.classList.add("hidden"); sw.classList.remove("flex"); }
+      } else {
+        badge.innerText = "Guest"; txt.innerText = "Login"; rp.classList.add("hidden"); adm.classList.add("hidden"); sw.classList.add("hidden"); sw.classList.remove("flex");
+      }
+    }
+
+    // REGISTERS (Print specific formatting logic)
+    function onAdminSwitchSchool() { state.activeEmis = document.getElementById("adminSchoolSelect").value; localStorage.setItem("app_last_emis", state.activeEmis); fetchSchoolDataSync(); }
+    function updateAdminSchoolSwitcher() {
+      const sel = document.getElementById("adminSchoolSelect"); sel.innerHTML = "";
+      state.allSchools.forEach(s => { const o = document.createElement("option"); o.value = s.emisCode; o.innerText = `${s.schoolName} (${s.emisCode})`; if(s.emisCode===state.activeEmis) o.selected=true; sel.appendChild(o); });
+    }
+    
+    function populateRegisterDropdowns() {
+      const sel = document.getElementById("regClassSelect"); sel.innerHTML="";
+      const cs = [...new Set(state.students.map(s=>s.studentClass))].filter(Boolean);
+      (cs.length?cs:["Class 8"]).forEach(c => { const o = document.createElement("option"); o.value=c; o.innerText=c; sel.appendChild(o); });
+      onClassChange();
+    }
+    function onClassChange() {
+      const cls = document.getElementById("regClassSelect").value;
+      const sub = document.getElementById("regSubjectSelect"); sub.innerHTML="";
+      const ms = state.subjects.filter(s=>s.class===cls); let inc = "Teacher";
+      if(ms.length) ms.forEach(m => { const o = document.createElement("option"); o.value=m.subject; o.innerText=m.subject; sub.appendChild(o); if(m.incharge) inc=m.incharge; });
+      else sub.innerHTML = `<option value="Computer">Computer</option>`;
+      document.getElementById("p1InchargeName").innerText = inc;
+      updateHeaderMetadata(); updateCalendar();
+    }
+    function updateHeaderMetadata() {
+      document.getElementById("p1ClassSec").innerText = `${document.getElementById("regClassSelect").value||"-"} - ${document.getElementById("regSectionInput").value||"A"}`;
+      document.getElementById("p1Subject").innerText = document.getElementById("regSubjectSelect").value||"-";
+      document.getElementById("p1SchoolName").innerText = state.activeSchoolName; document.getElementById("p1EmisCode").innerText = state.activeEmis;
+    }
+    function onMonthChange() { const v = document.getElementById("regMonthPicker").value; if(!v) return; const p = v.split("-"); state.selectedYear=parseInt(p[0]); state.selectedMonthIndex=parseInt(p[1])-1; updateCalendar(); }
+    function onReportTypeChange() {
+      const m = document.getElementById("regReportTypeSelect").value; const dim = new Date(state.selectedYear, state.selectedMonthIndex+1, 0).getDate();
+      if(m==="daily") { document.getElementById("dailySpecificRow").classList.remove("hidden"); const sd = parseInt(document.getElementById("specificDaySelect").value)||1; state.activeStartDay=sd; state.activeEndDay=sd; }
+      else { document.getElementById("dailySpecificRow").classList.add("hidden"); state.activeStartDay=1; state.activeEndDay=dim; }
+      document.getElementById("p1TitleReportType").innerText = m.toUpperCase().split("_")[0]; document.getElementById("p2TitleReportType").innerText = m.toUpperCase().split("_")[0];
+      updateCalendar();
+    }
+
+    function updateCalendar() { renderPage1(); renderPage2(); }
+
+    function renderPage1() {
+      const hRow = document.getElementById("p1SubHeaderDaysRow"); hRow.innerHTML="";
+      for(let d=state.activeStartDay; d<=state.activeEndDay; d++) {
+        const off = state.offDays.has(new Date(state.selectedYear, state.selectedMonthIndex, d).getDay());
+        const th = document.createElement("th"); th.className = `border py-0.5 text-[7px] ${off?'cell-off-day':'sheet-green-sub'}`; th.innerText = d; hRow.appendChild(th);
+      }
+      document.getElementById("p1DailyHeader").colSpan = (state.activeEndDay - state.activeStartDay + 1);
+
+      const tb = document.getElementById("p1TableBody"); tb.innerHTML="";
+      const cls = document.getElementById("regClassSelect").value;
+      const list = state.students.filter(s=>s.studentClass===cls);
+      if(!list.length) { tb.innerHTML=`<tr><td colspan="40" class="py-2 italic text-slate-400">No students found for this school/class.</td></tr>`; return; }
+
+      list.forEach((st, i) => {
+        const rec = state.marksRecord[st.admNo] || { marks:{}, sba:0, remarks:"" };
+        let sum=0, c=0, cells="";
+        for(let d=state.activeStartDay; d<=state.activeEndDay; d++) {
+          const off = state.offDays.has(new Date(state.selectedYear, state.selectedMonthIndex, d).getDay());
+          const v = rec.marks[d]!==undefined?rec.marks[d]:"";
+          if(off) cells += `<td class="border cell-off-day text-[6px]"></td>`;
+          else { if(v!==""&&!isNaN(v)){sum+=Number(v); c++;} cells += `<td class="border p-0"><input type="text" value="${v}" onchange="updateMark('${st.admNo}',${d},this.value)" class="text-center font-bold outline-none"></td>`; }
+        }
+        const avg = c>0?(sum/c).toFixed(1):"-";
+        const tr = document.createElement("tr"); tr.className="hover:bg-slate-50";
+        tr.innerHTML = `<td class="border py-1">${i+1}</td><td class="border text-left px-1 font-bold">${st.name}</td><td class="border">${st.rollNo}</td>${cells}<td class="border font-bold sheet-green-light">${sum}</td><td class="border font-bold sheet-green-light">${avg}</td><td class="border sheet-yellow-light p-0"><input type="number" value="${rec.sba||0}" onchange="state.marksRecord['${st.admNo}'].sba=this.value; LocalDB.set('db_marks',state.marksRecord)" class="text-center font-bold outline-none"></td><td class="border sheet-blue-light p-0"><input type="text" value="${rec.remarks||''}" onchange="state.marksRecord['${st.admNo}'].remarks=this.value; LocalDB.set('db_marks',state.marksRecord)" class="px-1 text-left outline-none"></td>`;
+        tb.appendChild(tr);
+      });
+    }
+
+    function renderPage2() {
+      const tb = document.getElementById("p2TableBody"); tb.innerHTML="";
+      const cls = document.getElementById("regClassSelect").value; const sub = document.getElementById("regSubjectSelect").value;
+      const list = state.students.filter(s=>s.studentClass===cls); const dNs = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+      for(let d=state.activeStartDay; d<=state.activeEndDay; d++) {
+        const off = state.offDays.has(new Date(state.selectedYear, state.selectedMonthIndex, d).getDay());
+        const tr = document.createElement("tr");
+        if(off) { tr.className="cell-off-day"; tr.innerHTML=`<td class="border py-1">${d}</td><td class="border">${dNs[new Date(state.selectedYear,state.selectedMonthIndex,d).getDay()]}</td><td colspan="8" class="border font-bold italic">OFF DAY</td>`; tb.appendChild(tr); continue; }
+        
+        let pre=0, sum=0, b5=0;
+        list.forEach(st => { const v = state.marksRecord[st.admNo]?.marks[d]; if(v!==undefined&&v!==""&&String(v).toUpperCase()!=="A"){pre++; sum+=Number(v); if(Number(v)<5)b5++;} });
+        const abs = list.length - pre; const avg = pre>0?(sum/pre).toFixed(1):"-";
+        const sd = state.summaries[d] || {topic:"", gaps:"", remedial:""};
+        
+        tr.innerHTML = `<td class="border py-1 font-bold">${d}</td><td class="border">${dNs[new Date(state.selectedYear,state.selectedMonthIndex,d).getDay()]}</td><td class="border p-0 text-left"><input type="text" value="${sd.topic||(pre>0?`${sub} Exam`:'')}" onchange="updateSum(${d},'topic',this.value)" class="px-1 font-bold w-full outline-none bg-transparent"></td><td class="border">${list.length}</td><td class="border font-bold text-emerald-800">${pre}</td><td class="border text-red-600">${abs}</td><td class="border font-bold sheet-green-light">${avg}</td><td class="border font-bold">${b5}</td><td class="border p-0 text-left"><textarea rows="2" onchange="updateSum(${d},'gaps',this.value)" class="w-full resize-none px-1 overflow-hidden font-medium text-[8px] sm:text-xs" style="min-height:30px;">${sd.gaps||(pre>0?lookupLearningGap(parseFloat(avg)):'')}</textarea></td><td class="border sheet-blue-light p-0 text-left"><textarea rows="2" onchange="updateSum(${d},'remedial',this.value)" class="w-full resize-none px-1 overflow-hidden font-medium text-[8px] sm:text-xs" style="min-height:30px;">${sd.remedial||(pre>0?lookupRemedialAction(parseFloat(avg)):'')}</textarea></td>`;
+        tb.appendChild(tr);
+      }
+    }
+
+    function updateMark(admNo, d, v) { if(!state.marksRecord[admNo]) state.marksRecord[admNo] = { marks:{} }; if(v==="") delete state.marksRecord[admNo].marks[d]; else state.marksRecord[admNo].marks[d]=v; LocalDB.set("db_marks", state.marksRecord); renderPage1(); renderPage2(); }
+    function updateSum(d, f, v) { if(!state.summaries[d]) state.summaries[d]={topic:"", gaps:"", remedial:""}; state.summaries[d][f]=v; LocalDB.set("db_summaries", state.summaries); }
+    function switchRegisterPage(p) { document.getElementById("reportPage1").classList.toggle("hidden", p!=="page1"); document.getElementById("reportPage2").classList.toggle("hidden", p!=="page2"); document.getElementById("tabBtn1").classList.toggle("bg-white", p==="page1"); document.getElementById("tabBtn2").classList.toggle("bg-white", p==="page2"); }
+    
+    function queueRegisterSave() {
+      const cls = document.getElementById("regClassSelect").value; const sec = document.getElementById("regSectionInput").value||"A"; const month = document.getElementById("regMonthPicker").value;
+      LocalDB.pushQueue({ action: "saveAll", payload: { emisCode: state.activeEmis, class: cls, section: sec, month: month, studentRows: generateLocalStudentRows(cls, sec, month), summaryRows: generateLocalSummaryRows(cls, sec, month), isReset: false } });
+      showToast("Register saved locally & queued for sync!");
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      applyBrandLogo(state.brandLogo); document.getElementById("studentEmisInput").value = state.activeEmis;
+      updateSyncIndicator(); updateAppRolesUI();
+      if(state.students.length > 0) { populateRegisterDropdowns(); updateAdminSchoolSwitcher(); updateHeaderMetadata(); }
+      setTimeout(() => hideLoader(), 700);
+    });
+  </script>
+</body>
+</html>
